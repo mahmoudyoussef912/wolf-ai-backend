@@ -119,14 +119,30 @@ def google_auth():
     except Exception:
         return jsonify({"error": "Failed to verify Google token"}), 400
 
-    # Find or create user
-    user = User.query.filter_by(email=email).first()
-    if user:
-        # Update Google info if needed
-        if not user.avatar_url and picture:
+    # Find or create user with deterministic linking behavior:
+    # 1) Prefer existing local/email account (merge into same account)
+    # 2) Fallback to existing google-sub account
+    # 3) Create fresh account
+    user_by_email = User.query.filter_by(email=email).first()
+    user_by_sub = User.query.filter_by(provider_id=sub).first() if sub else None
+
+    if user_by_email:
+        user = user_by_email
+        if picture and not user.avatar_url:
             user.avatar_url = picture
-        if user.provider == "local":
+        if sub and not user.provider_id:
             user.provider_id = sub
+        if user.provider not in ("local", "google"):
+            user.provider = "google"
+    elif user_by_sub:
+        user = user_by_sub
+        if email and not user.email:
+            user.email = email
+        if name and user.name != name:
+            user.name = name
+        if picture and not user.avatar_url:
+            user.avatar_url = picture
+        user.provider = "google"
     else:
         user = User(
             email=email,
