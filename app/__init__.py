@@ -59,7 +59,9 @@ def create_app():
 
     @app.route("/api/health")
     def health():
-        return {"status": "ok", "app": "WOLF AI"}
+        db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+        db_backend = "postgresql" if db_uri.startswith("postgresql://") else "sqlite"
+        return {"status": "ok", "app": "WOLF AI", "database": db_backend}
 
     # Error Handlers
     @app.errorhandler(404)
