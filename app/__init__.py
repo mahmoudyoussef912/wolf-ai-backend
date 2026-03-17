@@ -30,8 +30,11 @@ def create_app():
     db.init_app(app)
 
     with app.app_context():
-        db.create_all()
-        seed_database()
+        try:
+            db.create_all()
+            seed_database()
+        except Exception as e:
+            app.logger.exception("Database initialization failed: %s", e)
 
     # Register blueprints for different parts of the application
     from app.routes.chat import chat_bp

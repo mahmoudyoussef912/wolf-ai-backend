@@ -31,9 +31,8 @@ class Config:
             _database_url = _database_url.replace("postgres://", "postgresql://", 1)
         SQLALCHEMY_DATABASE_URI = _database_url
     else:
-        SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.join(
-            os.path.dirname(os.path.dirname(__file__)), "wolf.db"
-        )
+        # Use /tmp for hosted environments where app directory may be read-only.
+        SQLALCHEMY_DATABASE_URI = "sqlite:////tmp/wolf.db"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT
