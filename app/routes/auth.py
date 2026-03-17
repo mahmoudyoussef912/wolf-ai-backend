@@ -9,6 +9,11 @@ from app.middleware.auth import require_auth
 auth_bp = Blueprint("auth", __name__)
 
 
+def _is_admin_email(email: str) -> bool:
+    admin_emails = current_app.config.get("ADMIN_EMAILS", [])
+    return (email or "").strip().lower() in admin_emails
+
+
 @auth_bp.route("/api/auth/google-config", methods=["GET"])
 def google_config():
     client_id = current_app.config.get("GOOGLE_CLIENT_ID", "")
@@ -52,7 +57,7 @@ def register():
         name=name,
         password_hash=generate_password_hash(password),
         provider="local",
-        role="user",
+        role="admin" if _is_admin_email(email) else "user",
     )
     db.session.add(user)
     db.session.commit()
@@ -134,6 +139,8 @@ def google_auth():
             user.provider_id = sub
         if user.provider not in ("local", "google"):
             user.provider = "google"
+        if _is_admin_email(email):
+            user.role = "admin"
     elif user_by_sub:
         user = user_by_sub
         if email and not user.email:
@@ -143,6 +150,8 @@ def google_auth():
         if picture and not user.avatar_url:
             user.avatar_url = picture
         user.provider = "google"
+        if _is_admin_email(email):
+            user.role = "admin"
     else:
         user = User(
             email=email,
@@ -150,7 +159,7 @@ def google_auth():
             avatar_url=picture,
             provider="google",
             provider_id=sub,
-            role="user",
+            role="admin" if _is_admin_email(email) else "user",
         )
         db.session.add(user)
 

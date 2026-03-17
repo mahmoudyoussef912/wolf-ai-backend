@@ -213,6 +213,13 @@ def seed_database():
             )
             db.session.add(admin)
 
+    # Promote configured owner/admin emails if accounts already exist.
+    admin_emails = current_app.config.get("ADMIN_EMAILS", [])
+    if admin_emails:
+        for u in User.query.filter(User.email.in_(admin_emails)).all():
+            if u.role != "admin":
+                u.role = "admin"
+
     # Seed API keys from environment variables
     key_map = {
         "groq_api_key": "GROQ_API_KEY",
