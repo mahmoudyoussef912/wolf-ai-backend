@@ -53,7 +53,3 @@ class Config:
                 raise ValueError("SECRET_KEY must be set in production environment.")
             if not self.JWT_SECRET:
                 raise ValueError("JWT_SECRET must be set in production environment.")
-            if self.SQLALCHEMY_DATABASE_URI.startswith("sqlite://"):
-                raise ValueError(
-                    "DATABASE_URL must be set to PostgreSQL in production to persist data."
-                )
