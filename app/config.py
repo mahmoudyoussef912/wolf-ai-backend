@@ -1,4 +1,5 @@
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,6 +30,15 @@ class Config:
         # Render may provide postgres://; SQLAlchemy expects postgresql://
         if _database_url.startswith("postgres://"):
             _database_url = _database_url.replace("postgres://", "postgresql://", 1)
+
+        # Hosted PostgreSQL often requires SSL. Also keep connection failure fast.
+        if _database_url.startswith("postgresql://"):
+            parts = urlsplit(_database_url)
+            params = dict(parse_qsl(parts.query, keep_blank_values=True))
+            params.setdefault("sslmode", "require")
+            params.setdefault("connect_timeout", "5")
+            _database_url = urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(params), parts.fragment))
+
         SQLALCHEMY_DATABASE_URI = _database_url
     else:
         # Use /tmp for hosted environments where app directory may be read-only.

@@ -3,6 +3,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from sqlalchemy import create_engine, text
 from app.config import Config
 from app.models.database import db
 from app.models.store import seed_database
@@ -13,6 +14,17 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["300 per hour"])
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config())
+
+    # Fail open to local sqlite when managed postgres is temporarily unavailable.
+    db_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if db_uri.startswith("postgresql://"):
+        try:
+            probe_engine = create_engine(db_uri, pool_pre_ping=True)
+            with probe_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+        except Exception as e:
+            app.logger.exception("PostgreSQL probe failed, falling back to sqlite: %s", e)
+            app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:////tmp/wolf.db"
 
     # Wide CORS policy for hosted frontend domains (including dynamic Vercel URLs).
     CORS(
