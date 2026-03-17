@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, request, jsonify, g
 from app.services.llm_service import chat
 from app.models.store import add_chat_log, get_file
@@ -7,6 +8,44 @@ from app.middleware.auth import require_auth
 chat_bp = Blueprint("chat", __name__)
 
 MAX_MESSAGE_LENGTH = 8000
+
+DEVELOPER_NAME = "Mahmoud Youssef Elshoraky"
+DEVELOPER_INFO_EN = "Founder and lead developer of WOLF AI."
+DEVELOPER_INFO_AR = "مؤسس ومطور WOLF AI الرئيسي."
+
+
+def _looks_arabic(text: str) -> bool:
+    return bool(re.search(r"[\u0600-\u06FF]", text or ""))
+
+
+def _is_developer_question(text: str) -> bool:
+    t = (text or "").strip().lower()
+    if not t:
+        return False
+
+    arabic_hits = ["مين المطور", "من المطور", "مين طور", "مين عملك", "مطورك", "صاحبك", "صاحب البرنامج"]
+    english_hits = [
+        "who is your developer",
+        "who developed you",
+        "who made you",
+        "developer name",
+        "who is the developer",
+        "your developer",
+        "about developer",
+    ]
+    return any(k in t for k in arabic_hits) or any(k in t for k in english_hits)
+
+
+def _developer_reply(user_text: str) -> str:
+    if _looks_arabic(user_text):
+        return (
+            f"المطور هو {DEVELOPER_NAME}. "
+            f"{DEVELOPER_INFO_AR}"
+        )
+    return (
+        f"The developer is {DEVELOPER_NAME}. "
+        f"{DEVELOPER_INFO_EN}"
+    )
 
 
 @chat_bp.route("/api/chat", methods=["POST"])
@@ -33,6 +72,23 @@ def handle_chat():
             conversation_id = conv.id
 
         files = [f for fid in file_ids if (f := get_file(fid))]
+
+        # Deterministic response for developer identity questions.
+        if _is_developer_question(message):
+            response_text = _developer_reply(message)
+            add_chat_log(
+                message, response_text,
+                msg_type="text",
+                conversation_id=conversation_id,
+                user_id=g.current_user.id,
+                provider_used="system",
+            )
+            return jsonify({
+                "response": response_text,
+                "type": "text",
+                "provider": "system",
+                "conversation_id": conversation_id,
+            })
 
         # Build conversation history for multi-turn context
         history = []

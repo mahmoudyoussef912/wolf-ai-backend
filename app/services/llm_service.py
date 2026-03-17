@@ -1,5 +1,6 @@
 import threading
 import logging
+import re
 import requests
 from app.models.store import get_settings
 
@@ -35,6 +36,41 @@ _call_count = 0
 
 # Maximum history messages to send (to stay within token budget)
 MAX_HISTORY_MESSAGES = 20
+
+
+def _detect_user_language(text):
+    """Best-effort language hint based on script and common keywords."""
+    if not text:
+        return "same as user"
+
+    t = text.strip().lower()
+    if re.search(r"[\u0600-\u06FF]", t):
+        return "Arabic"
+    if re.search(r"[\u0400-\u04FF]", t):
+        return "Russian"
+    if re.search(r"[\u4E00-\u9FFF]", t):
+        return "Chinese"
+    if re.search(r"[\u3040-\u30FF]", t):
+        return "Japanese"
+    if re.search(r"[\uAC00-\uD7AF]", t):
+        return "Korean"
+
+    # Default to English for Latin-script content unless provider infers otherwise.
+    return "English"
+
+
+def _behavior_instructions(user_message):
+    language = _detect_user_language(user_message)
+    developer_name = "Mahmoud Youssef Elshoraky"
+    developer_info = "Founder and lead developer of WOLF AI."
+
+    return (
+        "Behavior rules:\n"
+        f"1) Always reply in the same language as the user's latest message. Detected language: {language}.\n"
+        "2) If the user asks who built/developed/created this assistant, answer exactly with the provided developer identity.\n"
+        f"3) Developer identity: Name: {developer_name}. Info: {developer_info}.\n"
+        "4) Keep answers clear, concise, and practical."
+    )
 
 
 class RateLimitError(Exception):
@@ -166,6 +202,7 @@ def chat(message, files=None, history=None):
         "system_prompt",
         "You are WOLF AI, a helpful assistant.",
     )
+    runtime_system_prompt = f"{system_prompt}\n\n{_behavior_instructions(message)}"
 
     # Separate image files from text files
     image_data = None
@@ -189,7 +226,7 @@ def chat(message, files=None, history=None):
             try:
                 logger.info("Trying vision provider: %s", provider["name"])
                 text = _call_vision_provider(
-                    provider, system_prompt, full_message,
+                    provider, runtime_system_prompt, full_message,
                     image_data["content"],
                     image_data.get("mime_type", "image/png"),
                     settings,
@@ -202,7 +239,7 @@ def chat(message, files=None, history=None):
         full_message += "\n\n[Note: An image was attached but could not be processed]"
 
     # Build message list: system + capped history + current user message
-    messages = [{"role": "system", "content": system_prompt}]
+    messages = [{"role": "system", "content": runtime_system_prompt}]
     if history:
         # Keep only the last MAX_HISTORY_MESSAGES to stay within token budgets
         messages.extend(history[-MAX_HISTORY_MESSAGES:])
