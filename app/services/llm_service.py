@@ -59,10 +59,23 @@ def _detect_user_language(text):
     return "English"
 
 
-def _behavior_instructions(user_message):
+def _behavior_instructions(user_message, user_context=None):
     language = _detect_user_language(user_message)
     developer_name = "Mahmoud Youssef Elshoraky"
     developer_info = "Founder and lead developer of WOLF AI."
+
+    user_block = ""
+    if user_context:
+        user_block = (
+            "\n5) Authenticated user profile context (for personalization and account-aware help):\n"
+            f"- user_id: {user_context.get('id')}\n"
+            f"- name: {user_context.get('name')}\n"
+            f"- email: {user_context.get('email')}\n"
+            f"- role: {user_context.get('role')}\n"
+            f"- provider: {user_context.get('provider')}\n"
+            f"- created_at: {user_context.get('created_at')}\n"
+            "Never expose private user data unless the user explicitly asks for their own profile details."
+        )
 
     return (
         "Behavior rules:\n"
@@ -70,6 +83,7 @@ def _behavior_instructions(user_message):
         "2) If the user asks who built/developed/created this assistant, answer exactly with the provided developer identity.\n"
         f"3) Developer identity: Name: {developer_name}. Info: {developer_info}.\n"
         "4) Keep answers clear, concise, and practical."
+        f"{user_block}"
     )
 
 
@@ -150,21 +164,23 @@ def _call_provider(provider, messages, settings):
     return data["choices"][0]["message"]["content"]
 
 
-def _call_vision_provider(provider, system_prompt, message, image_base64, mime_type, settings):
+def _call_vision_provider(provider, system_prompt, message, images, settings):
     """Call a vision-capable provider. Returns response text or raises."""
     key = settings.get(provider["key_setting"], "")
+    content = [{"type": "text", "text": message}]
+    for img in images[:3]:
+        content.append(
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{img.get('mime_type', 'image/png')};base64,{img['content']}"
+                },
+            }
+        )
+
     messages = [
         {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": message},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:{mime_type};base64,{image_base64}"},
-                },
-            ],
-        },
+        {"role": "user", "content": content},
     ]
     payload = {
         "model": provider["vision_model"],
@@ -188,7 +204,7 @@ def _call_vision_provider(provider, system_prompt, message, image_base64, mime_t
     return data["choices"][0]["message"]["content"]
 
 
-def chat(message, files=None, history=None):
+def chat(message, files=None, history=None, user_context=None):
     """
     Send a chat message to available providers with fallback.
 
@@ -202,15 +218,15 @@ def chat(message, files=None, history=None):
         "system_prompt",
         "You are WOLF AI, a helpful assistant.",
     )
-    runtime_system_prompt = f"{system_prompt}\n\n{_behavior_instructions(message)}"
+    runtime_system_prompt = f"{system_prompt}\n\n{_behavior_instructions(message, user_context)}"
 
     # Separate image files from text files
-    image_data = None
+    image_files = []
     context_parts = []
     if files:
         for f in files:
-            if f["type"] == "image" and image_data is None:
-                image_data = f
+            if f["type"] == "image":
+                image_files.append(f)
             elif f["type"] in ("pdf", "text"):
                 context_parts.append(f"[Attached: {f['filename']}]\n\n{f['content']}")
 
@@ -219,16 +235,17 @@ def chat(message, files=None, history=None):
         full_message = "\n\n".join(context_parts) + f"\n\n---\n\nUser: {message}"
 
     # Vision path
-    if image_data:
+    if image_files:
         providers = _get_available_providers(need_vision=True)
         last_error = None
         for provider in providers:
             try:
                 logger.info("Trying vision provider: %s", provider["name"])
                 text = _call_vision_provider(
-                    provider, runtime_system_prompt, full_message,
-                    image_data["content"],
-                    image_data.get("mime_type", "image/png"),
+                    provider,
+                    runtime_system_prompt,
+                    full_message,
+                    image_files,
                     settings,
                 )
                 return {"text": text, "provider": provider["name"]}

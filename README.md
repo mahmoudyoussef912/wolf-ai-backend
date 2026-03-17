@@ -86,7 +86,7 @@ The API is organized into several blueprints:
 
 -   `/api/auth`: User authentication (register, login, me, Google OAuth).
 -   `/api/chat`: Handling chat messages.
--   `/api/generate-image`: Image generation.
+-   `/api/chat`: Multimodal chat (text + uploaded files/images analysis).
 -   `/api/conversations`: Managing chat conversations.
 -   `/api/upload`: File uploads.
 -   `/api/admin`: Admin-only endpoints for stats, logs, settings, and user management.

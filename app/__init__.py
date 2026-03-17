@@ -51,7 +51,6 @@ def create_app():
 
     # Register blueprints for different parts of the application
     from app.routes.chat import chat_bp
-    from app.routes.image import image_bp
     from app.routes.upload import upload_bp
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
@@ -59,7 +58,6 @@ def create_app():
     from app.routes.theme import theme_bp
 
     app.register_blueprint(chat_bp)
-    app.register_blueprint(image_bp)
     app.register_blueprint(upload_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(auth_bp)

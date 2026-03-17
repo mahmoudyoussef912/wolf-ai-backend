@@ -72,6 +72,14 @@ def handle_chat():
             conversation_id = conv.id
 
         files = [f for fid in file_ids if (f := get_file(fid))]
+        user_context = {
+            "id": g.current_user.id,
+            "name": g.current_user.name,
+            "email": g.current_user.email,
+            "role": g.current_user.role,
+            "provider": g.current_user.provider,
+            "created_at": g.current_user.created_at.isoformat() if g.current_user.created_at else "",
+        }
 
         # Deterministic response for developer identity questions.
         if _is_developer_question(message):
@@ -107,7 +115,12 @@ def handle_chat():
                 if m.role in ("user", "assistant")
             ]
 
-        result = chat(message, files=files or None, history=history or None)
+        result = chat(
+            message,
+            files=files or None,
+            history=history or None,
+            user_context=user_context,
+        )
 
         response_text = result["text"] if isinstance(result, dict) else result
         provider = result.get("provider", "") if isinstance(result, dict) else ""
