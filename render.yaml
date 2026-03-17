@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: wolf-ai-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app
+    preDeployCommand: flask --app run.py init-db
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: FLASK_DEBUG
+        value: "false"
+      - key: SECRET_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: ADMIN_PASS
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: wolf-ai-db
+          property: connectionString
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HF_API_TOKEN
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+
+databases:
+  - name: wolf-ai-db
+    databaseName: wolf_ai
+    user: wolf_ai_user
