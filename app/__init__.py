@@ -40,6 +40,7 @@ def create_app():
     os.makedirs(app.config.get("UPLOAD_FOLDER", "uploads"), exist_ok=True)
 
     db.init_app(app)
+    from app.models.theme import Theme  # noqa: F401
 
     with app.app_context():
         try:
@@ -55,6 +56,7 @@ def create_app():
     from app.routes.admin import admin_bp
     from app.routes.auth import auth_bp
     from app.routes.conversations import conversations_bp
+    from app.routes.theme import theme_bp
 
     app.register_blueprint(chat_bp)
     app.register_blueprint(image_bp)
@@ -62,6 +64,7 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(conversations_bp)
+    app.register_blueprint(theme_bp)
 
     @app.route("/api/health")
     def health():

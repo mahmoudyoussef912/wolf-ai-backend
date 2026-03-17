@@ -8,8 +8,15 @@ conversations_bp = Blueprint("conversations", __name__)
 @conversations_bp.route("/api/conversations", methods=["GET"])
 @require_auth
 def list_conversations():
-    convs = (Conversation.query
-             .filter_by(user_id=g.current_user.id)
+    query = Conversation.query
+    if g.current_user.role != "admin":
+        query = query.filter_by(user_id=g.current_user.id)
+    else:
+        user_id = request.args.get("user_id", type=int)
+        if user_id:
+            query = query.filter_by(user_id=user_id)
+
+    convs = (query
              .order_by(Conversation.updated_at.desc())
              .all())
     return jsonify([c.to_dict() for c in convs])
@@ -34,7 +41,7 @@ def create_conversation():
 @require_auth
 def get_messages(conv_id):
     conv = db.get_or_404(Conversation, conv_id)
-    if conv.user_id != g.current_user.id:
+    if conv.user_id != g.current_user.id and g.current_user.role != "admin":
         return jsonify({"error": "Access denied"}), 403
 
     messages = (ChatMessage.query
@@ -48,7 +55,7 @@ def get_messages(conv_id):
 @require_auth
 def delete_conversation(conv_id):
     conv = db.get_or_404(Conversation, conv_id)
-    if conv.user_id != g.current_user.id:
+    if conv.user_id != g.current_user.id and g.current_user.role != "admin":
         return jsonify({"error": "Access denied"}), 403
 
     db.session.delete(conv)
@@ -60,7 +67,7 @@ def delete_conversation(conv_id):
 @require_auth
 def update_title(conv_id):
     conv = db.get_or_404(Conversation, conv_id)
-    if conv.user_id != g.current_user.id:
+    if conv.user_id != g.current_user.id and g.current_user.role != "admin":
         return jsonify({"error": "Access denied"}), 403
 
     data = request.get_json() or {}
