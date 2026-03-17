@@ -5,6 +5,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from app.config import Config
 from app.models.database import db
+from app.models.store import seed_database
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["300 per hour"])
 
@@ -13,19 +14,33 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config())
 
-    # CORS — origins configurable via CORS_ORIGINS env var
+    # Allow local development plus any Vercel deployment by default.
     raw_origins = os.environ.get(
         "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
     )
-    origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
-    CORS(app, origins=origins, supports_credentials=True,
-         allow_headers=["Content-Type", "Authorization"])
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        r"https://.*\.vercel\.app",
+    ]
+    origins.extend([o.strip() for o in raw_origins.split(",") if o.strip()])
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": origins}},
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    )
 
     limiter.init_app(app)
 
     os.makedirs(app.config.get("UPLOAD_FOLDER", "uploads"), exist_ok=True)
 
     db.init_app(app)
+
+    with app.app_context():
+        db.create_all()
+        seed_database()
 
     # Register blueprints for different parts of the application
     from app.routes.chat import chat_bp
