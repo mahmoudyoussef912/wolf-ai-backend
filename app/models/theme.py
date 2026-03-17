@@ -9,16 +9,16 @@ class Theme(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     
     # Colors
-    bg_primary = db.Column(db.String(7), default="#070e17")
-    bg_secondary = db.Column(db.String(7), default="#0f1724")
-    bg_tertiary = db.Column(db.String(7), default="#162233")
-    accent = db.Column(db.String(7), default="#14b8a6")
-    accent_hover = db.Column(db.String(7), default="#0d9488")
-    text_primary = db.Column(db.String(7), default="#e6edf5")
-    text_secondary = db.Column(db.String(7), default="#9fb1c7")
-    border = db.Column(db.String(7), default="#233347")
-    success = db.Column(db.String(7), default="#22c55e")
-    error = db.Column(db.String(7), default="#ef4444")
+    bg_primary = db.Column(db.String(7), default="#f4f7fb")
+    bg_secondary = db.Column(db.String(7), default="#ffffff")
+    bg_tertiary = db.Column(db.String(7), default="#e9eef5")
+    accent = db.Column(db.String(7), default="#0f6fff")
+    accent_hover = db.Column(db.String(7), default="#0b57cc")
+    text_primary = db.Column(db.String(7), default="#0f172a")
+    text_secondary = db.Column(db.String(7), default="#475569")
+    border = db.Column(db.String(7), default="#d7deea")
+    success = db.Column(db.String(7), default="#16a34a")
+    error = db.Column(db.String(7), default="#dc2626")
     
     # Branding
     app_name = db.Column(db.String(100), default="WOLF AI")

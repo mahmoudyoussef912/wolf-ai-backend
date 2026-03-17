@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, g
 from app.models.database import db, Conversation, ChatMessage
 from app.middleware.auth import require_auth
+from app.models.store import archive_and_delete_conversation
 
 conversations_bp = Blueprint("conversations", __name__)
 
@@ -58,9 +59,13 @@ def delete_conversation(conv_id):
     if conv.user_id != g.current_user.id and g.current_user.role != "admin":
         return jsonify({"error": "Access denied"}), 403
 
-    db.session.delete(conv)
-    db.session.commit()
-    return jsonify({"message": "Conversation deleted"})
+    reason = "admin_delete" if g.current_user.role == "admin" else "user_delete"
+    archived = archive_and_delete_conversation(
+        conv,
+        deleted_by_user_id=g.current_user.id,
+        reason=reason,
+    )
+    return jsonify({"message": "Conversation deleted", "archived_id": archived.id})
 
 
 @conversations_bp.route("/api/conversations/<int:conv_id>/title", methods=["PUT"])

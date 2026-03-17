@@ -1,5 +1,14 @@
 from datetime import datetime, timezone
-from app.models.database import db, ChatMessage, Setting, UploadedFile, User, Conversation
+from app.models.database import (
+    db,
+    ChatMessage,
+    Setting,
+    UploadedFile,
+    User,
+    Conversation,
+    ArchivedConversation,
+    ArchivedMessage,
+)
 
 _API_KEY_FIELDS = {"groq_api_key", "hf_api_token", "openrouter_api_key"}
 
@@ -75,7 +84,51 @@ def get_stats():
         "total_users": User.query.count(),
         "messages_sent": ChatMessage.query.filter_by(role="user").count(),
         "images_generated": ChatMessage.query.filter_by(msg_type="image").count(),
+        "total_conversations": Conversation.query.count(),
+        "archived_conversations": ArchivedConversation.query.count(),
+        "archived_messages": ArchivedMessage.query.count(),
     }
+
+
+def archive_and_delete_conversation(conversation, deleted_by_user_id=None, reason="user_delete"):
+    """Archive conversation and all messages, then hard-delete original records."""
+    user = conversation.user
+    archived_conv = ArchivedConversation(
+        original_conversation_id=conversation.id,
+        original_user_id=conversation.user_id,
+        user_email=user.email if user else None,
+        user_name=user.name if user else None,
+        title=conversation.title,
+        deleted_by_user_id=deleted_by_user_id,
+        deleted_reason=reason,
+        created_at=conversation.created_at,
+    )
+    db.session.add(archived_conv)
+    db.session.flush()
+
+    messages = (
+        ChatMessage.query
+        .filter_by(conversation_id=conversation.id)
+        .order_by(ChatMessage.created_at.asc())
+        .all()
+    )
+    for m in messages:
+        db.session.add(ArchivedMessage(
+            archived_conversation_id=archived_conv.id,
+            original_message_id=m.id,
+            original_conversation_id=m.conversation_id,
+            user_id=m.user_id,
+            role=m.role,
+            content=m.content,
+            msg_type=m.msg_type,
+            image_url=m.image_url,
+            provider_used=m.provider_used,
+            created_at=m.created_at,
+        ))
+
+    db.session.delete(conversation)
+    db.session.commit()
+    return archived_conv
 
 
 def get_settings():
