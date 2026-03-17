@@ -83,7 +83,7 @@ def get_stats():
     return {
         "total_users": User.query.count(),
         "messages_sent": ChatMessage.query.filter_by(role="user").count(),
-        "images_generated": ChatMessage.query.filter_by(msg_type="image").count(),
+        "images_generated": UploadedFile.query.filter_by(file_type="image").count(),
         "total_conversations": Conversation.query.count(),
         "archived_conversations": ArchivedConversation.query.count(),
         "archived_messages": ArchivedMessage.query.count(),

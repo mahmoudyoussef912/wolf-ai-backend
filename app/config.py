@@ -19,6 +19,7 @@ class Config:
     # Admin
     ADMIN_USER = os.getenv("ADMIN_USER", "admin")
     ADMIN_PASS = os.getenv("ADMIN_PASS", "") # No default password
+    MAIN_ADMIN_EMAIL = os.getenv("MAIN_ADMIN_EMAIL", "mahmoudelshoraky8@gmail.com").strip().lower()
     _admin_emails_raw = os.getenv("ADMIN_EMAILS", "mahmoudelshoraky8@gmail.com")
     ADMIN_EMAILS = [e.strip().lower() for e in _admin_emails_raw.split(",") if e.strip()]
     

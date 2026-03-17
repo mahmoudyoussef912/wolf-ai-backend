@@ -236,24 +236,35 @@ def chat(message, files=None, history=None, user_context=None):
 
     # Vision path
     if image_files:
-        providers = _get_available_providers(need_vision=True)
-        last_error = None
-        for provider in providers:
-            try:
-                logger.info("Trying vision provider: %s", provider["name"])
-                text = _call_vision_provider(
-                    provider,
-                    runtime_system_prompt,
-                    full_message,
-                    image_files,
-                    settings,
-                )
-                return {"text": text, "provider": provider["name"]}
-            except (RateLimitError, ModelLoadingError, ProviderError) as e:
-                logger.warning("Vision provider %s failed: %s", provider["name"], e)
-                last_error = e
-        logger.warning("All vision providers failed (%s), falling back to text-only", last_error)
-        full_message += "\n\n[Note: An image was attached but could not be processed]"
+        try:
+            providers = _get_available_providers(need_vision=True)
+        except ValueError:
+            providers = []
+
+        if providers:
+            last_error = None
+            for provider in providers:
+                try:
+                    logger.info("Trying vision provider: %s", provider["name"])
+                    text = _call_vision_provider(
+                        provider,
+                        runtime_system_prompt,
+                        full_message,
+                        image_files,
+                        settings,
+                    )
+                    return {"text": text, "provider": provider["name"]}
+                except (RateLimitError, ModelLoadingError, ProviderError) as e:
+                    logger.warning("Vision provider %s failed: %s", provider["name"], e)
+                    last_error = e
+            logger.warning("All vision providers failed (%s), falling back to text-only", last_error)
+
+        # Keep chat functional even without vision model by passing image metadata.
+        image_names = ", ".join([f.get("filename", "image") for f in image_files])
+        full_message += (
+            "\n\n[Attached images could not be visually parsed by a vision model in this environment. "
+            f"Image files: {image_names}. Ask the user for a brief description if needed.]"
+        )
 
     # Build message list: system + capped history + current user message
     messages = [{"role": "system", "content": runtime_system_prompt}]

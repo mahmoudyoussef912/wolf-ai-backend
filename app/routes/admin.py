@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash
 from app.models.store import get_stats, get_chat_logs, get_settings, update_settings
 from app.models.database import db, User, Conversation, ChatMessage, UploadedFile, ArchivedConversation, ArchivedMessage
@@ -69,6 +69,7 @@ def admin_create_user():
     name = str(data.get("name", "")).strip()
     password = str(data.get("password", ""))
     role = str(data.get("role", "user")).strip().lower()
+    main_admin_email = current_app.config.get("MAIN_ADMIN_EMAIL", "")
 
     if not email or not name or not password:
         return jsonify({"error": "Email, name, and password are required"}), 400
@@ -78,6 +79,8 @@ def admin_create_user():
         return jsonify({"error": "Role must be 'user' or 'admin'"}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Email already exists"}), 409
+    if email == main_admin_email:
+        role = "admin"
 
     user = User(
         email=email,
@@ -95,6 +98,9 @@ def admin_create_user():
 @require_admin
 def admin_delete_user(user_id):
     user = db.get_or_404(User, user_id)
+    main_admin_email = current_app.config.get("MAIN_ADMIN_EMAIL", "")
+    if user.email.lower() == main_admin_email:
+        return jsonify({"error": "Main admin account cannot be deleted"}), 403
 
     # Archive all user conversations/messages before deleting the account.
     conversations = Conversation.query.filter_by(user_id=user.id).all()
@@ -114,15 +120,64 @@ def admin_delete_user(user_id):
 @require_admin
 def admin_update_role(user_id):
     user = db.get_or_404(User, user_id)
+    main_admin_email = current_app.config.get("MAIN_ADMIN_EMAIL", "")
     data = request.get_json()
     if not data:
         return jsonify({"error": "No data provided"}), 400
     role = data.get("role")
     if role not in ("user", "admin"):
         return jsonify({"error": "Role must be 'user' or 'admin'"}), 400
+    if user.email.lower() == main_admin_email and role != "admin":
+        return jsonify({"error": "Main admin account role cannot be changed"}), 403
     user.role = role
     db.session.commit()
     return jsonify({"message": "Role updated", "user": user.to_dict()})
+
+
+@admin_bp.route("/api/admin/users/<int:user_id>/conversations", methods=["GET"])
+@require_admin
+def admin_user_conversations(user_id):
+    user = db.get_or_404(User, user_id)
+    include_archived = str(request.args.get("include_archived", "true")).lower() == "true"
+
+    active = (
+        Conversation.query
+        .filter_by(user_id=user.id)
+        .order_by(Conversation.updated_at.desc())
+        .all()
+    )
+    active_rows = [
+        {
+            "id": c.id,
+            "title": c.title,
+            "source": "active",
+            "updated_at": c.updated_at.isoformat() if c.updated_at else c.created_at.isoformat(),
+            "created_at": c.created_at.isoformat(),
+        }
+        for c in active
+    ]
+
+    archived_rows = []
+    if include_archived:
+        archived = (
+            ArchivedConversation.query
+            .filter_by(original_user_id=user.id)
+            .order_by(ArchivedConversation.deleted_at.desc())
+            .all()
+        )
+        archived_rows = [
+            {
+                "id": c.id,
+                "title": c.title,
+                "source": "archived",
+                "updated_at": c.deleted_at.isoformat() if c.deleted_at else c.created_at.isoformat(),
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            }
+            for c in archived
+        ]
+
+    rows = sorted(active_rows + archived_rows, key=lambda x: x.get("updated_at") or "", reverse=True)
+    return jsonify({"user": user.to_dict(), "conversations": rows})
 
 
 @admin_bp.route("/api/admin/users/<int:user_id>/messages", methods=["GET"])
