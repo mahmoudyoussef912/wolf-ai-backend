@@ -14,20 +14,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config())
 
-    # Allow local development plus any Vercel deployment by default.
-    raw_origins = os.environ.get(
-        "CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
-    )
-    origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        r"https://.*\.vercel\.app",
-    ]
-    origins.extend([o.strip() for o in raw_origins.split(",") if o.strip()])
+    # Wide CORS policy for hosted frontend domains (including dynamic Vercel URLs).
     CORS(
         app,
-        resources={r"/api/*": {"origins": origins}},
-        supports_credentials=True,
+        resources={r"/api/*": {"origins": "*"}},
+        supports_credentials=False,
         allow_headers=["Content-Type", "Authorization"],
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     )
