@@ -9,6 +9,12 @@ from app.middleware.auth import require_auth
 auth_bp = Blueprint("auth", __name__)
 
 
+@auth_bp.route("/api/auth/google-config", methods=["GET"])
+def google_config():
+    client_id = current_app.config.get("GOOGLE_CLIENT_ID", "")
+    return jsonify({"enabled": bool(client_id), "client_id": client_id})
+
+
 def _create_token(user):
     payload = {
         "user_id": user.id,
