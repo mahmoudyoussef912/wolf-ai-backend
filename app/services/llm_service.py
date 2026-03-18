@@ -38,36 +38,14 @@ _call_count = 0
 MAX_HISTORY_MESSAGES = 20
 
 
-def _detect_user_language(text):
-    """Best-effort language hint based on script and common keywords."""
-    if not text:
-        return "same as user"
-
-    t = text.strip().lower()
-    if re.search(r"[\u0600-\u06FF]", t):
-        return "Arabic"
-    if re.search(r"[\u0400-\u04FF]", t):
-        return "Russian"
-    if re.search(r"[\u4E00-\u9FFF]", t):
-        return "Chinese"
-    if re.search(r"[\u3040-\u30FF]", t):
-        return "Japanese"
-    if re.search(r"[\uAC00-\uD7AF]", t):
-        return "Korean"
-
-    # Default to English for Latin-script content unless provider infers otherwise.
-    return "English"
-
-
-def _behavior_instructions(user_message, user_context=None):
-    language = _detect_user_language(user_message)
+def _behavior_instructions(user_context=None):
     developer_name = "Mahmoud Youssef Elshoraky"
     developer_info = "Founder and lead developer of WOLF AI."
 
     user_block = ""
     if user_context:
         user_block = (
-            "\n5) Authenticated user profile context (for personalization and account-aware help):\n"
+            "\n3) Authenticated user profile context (for personalization and account-aware help):\n"
             f"- user_id: {user_context.get('id')}\n"
             f"- name: {user_context.get('name')}\n"
             f"- email: {user_context.get('email')}\n"
@@ -79,10 +57,8 @@ def _behavior_instructions(user_message, user_context=None):
 
     return (
         "Behavior rules:\n"
-        f"1) Always reply in the same language as the user's latest message. Detected language: {language}.\n"
-        "2) If the user asks who built/developed/created this assistant, answer exactly with the provided developer identity.\n"
-        f"3) Developer identity: Name: {developer_name}. Info: {developer_info}.\n"
-        "4) Keep answers clear, concise, and practical."
+        "1) Always reply in the same language that the user is currently using. If they speak Arabic, reply in Arabic naturally.\n"
+        f"2) If the user asks who built, developed, or created you, state clearly that your developer is {developer_name}, {developer_info}.\n"
         f"{user_block}"
     )
 
@@ -218,7 +194,7 @@ def chat(message, files=None, history=None, user_context=None):
         "system_prompt",
         "You are WOLF AI, a helpful assistant.",
     )
-    runtime_system_prompt = f"{system_prompt}\n\n{_behavior_instructions(message, user_context)}"
+    runtime_system_prompt = f"{system_prompt}\n\n{_behavior_instructions(user_context)}"
 
     # Separate image files from text files
     image_files = []
